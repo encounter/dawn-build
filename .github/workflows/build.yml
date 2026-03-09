@@ -41,6 +41,10 @@ jobs:
           ref: ${{ inputs.dawn_version }}
           path: dawn
 
+      - name: Setup MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
       - name: Setup CMake & Ninja
         uses: lukka/get-cmake@v4.2.3
 
