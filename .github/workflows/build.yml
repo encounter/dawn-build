@@ -1,0 +1,97 @@
+name: Build Dawn
+
+on:
+  workflow_dispatch:
+    inputs:
+      dawn_version:
+        description: "Dawn version tag (e.g. v20260307.161309)"
+        required: true
+        type: string
+
+env:
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            tarball: dawn-windows-amd64.tar.gz
+          - os: windows-11-arm
+            tarball: dawn-windows-arm64.tar.gz
+          - os: ubuntu-22.04
+            tarball: dawn-linux-x86_64.tar.gz
+          - os: ubuntu-22.04-arm
+            tarball: dawn-linux-aarch64.tar.gz
+          - os: macos-15
+            tarball: dawn-darwin-arm64.tar.gz
+          - os: macos-15-intel
+            tarball: dawn-darwin-x86_64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v6
+
+      - name: Checkout Dawn
+        uses: actions/checkout@v6
+        with:
+          repository: google/dawn
+          ref: ${{ inputs.dawn_version }}
+          path: dawn
+
+      - name: Setup CMake & Ninja
+        uses: lukka/get-cmake@v4.2.3
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Install dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev libxkbcommon-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev mesa-common-dev libx11-xcb-dev
+
+      - name: Configure
+        run: >-
+          cmake -S dawn -B build -G Ninja
+          -C dawn/.github/workflows/dawn-ci.cmake
+          -C .github/workflows/dawn-ci.cmake
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Install
+        run: cmake --install build --config Release --prefix install
+
+      - name: Package
+        run: tar -czf ${{ matrix.tarball }} -C install .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.tarball }}
+          path: ${{ matrix.tarball }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.dawn_version }}
+          name: Dawn ${{ inputs.dawn_version }}
+          files: "*.tar.gz"
