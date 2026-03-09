@@ -73,6 +73,13 @@ jobs:
       - name: Install
         run: cmake --install build --config Release --prefix install
 
+      - name: Copy DXC DLLs
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cp build/dxcompiler.dll install/bin/
+          cp build/dxil.dll install/bin/
+
       - name: Package
         run: tar -czf ${{ matrix.tarball }} -C install .
 
