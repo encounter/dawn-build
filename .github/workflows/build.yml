@@ -17,18 +17,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-2022
+          - os: windows-latest
             tarball: dawn-windows-amd64.tar.gz
-          - os: windows-11-arm
+          - os: windows-latest
             tarball: dawn-windows-arm64.tar.gz
+            msvc_arch: amd64_arm64
+            extra_cmake_args: -DCMAKE_SYSTEM_PROCESSOR=ARM64
           - os: ubuntu-22.04
             tarball: dawn-linux-x86_64.tar.gz
           - os: ubuntu-22.04-arm
             tarball: dawn-linux-aarch64.tar.gz
           - os: macos-15
             tarball: dawn-darwin-arm64.tar.gz
-          - os: macos-15-intel
+          - os: macos-15
             tarball: dawn-darwin-x86_64.tar.gz
+            extra_cmake_args: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_SYSTEM_PROCESSOR=x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout this repo
@@ -44,6 +47,8 @@ jobs:
       - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: ${{ matrix.msvc_arch || 'amd64' }}
 
       - name: Setup CMake & Ninja
         uses: lukka/get-cmake@v4.2.3
@@ -66,6 +71,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_C_COMPILER_LAUNCHER=sccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          ${{ matrix.extra_cmake_args }}
 
       - name: Build
         run: cmake --build build --config Release
