@@ -21,9 +21,9 @@ jobs:
             tarball: dawn-windows-amd64.tar.gz
           - os: windows-11-arm
             tarball: dawn-windows-arm64.tar.gz
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             tarball: dawn-linux-x86_64.tar.gz
-          - os: ubuntu-22.04-arm
+          - os: ubuntu-24.04-arm
             tarball: dawn-linux-aarch64.tar.gz
           - os: macos-15
             tarball: dawn-darwin-arm64.tar.gz
