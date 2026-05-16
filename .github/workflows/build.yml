@@ -24,8 +24,10 @@ jobs:
         include:
           - os: windows-latest
             tarball: dawn-windows-amd64.tar.gz
+            msvc_arch: x64
           - os: windows-11-arm
             tarball: dawn-windows-arm64.tar.gz
+            msvc_arch: arm64
           - os: ubuntu-24.04
             tarball: dawn-linux-x86_64.tar.gz
           - os: ubuntu-24.04-arm
@@ -51,6 +53,8 @@ jobs:
       - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: ${{ matrix.msvc_arch }}
 
       - name: Setup CMake & Ninja
         uses: lukka/get-cmake@v4.2.3
