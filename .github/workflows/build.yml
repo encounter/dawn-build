@@ -25,24 +25,18 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            platform: Windows
             tarball: dawn-windows-amd64.tar.gz
             msvc_arch: x64
           - os: windows-11-arm
-            platform: Windows
             tarball: dawn-windows-arm64.tar.gz
             msvc_arch: arm64
           - os: ubuntu-24.04
-            platform: Linux
             tarball: dawn-linux-x86_64.tar.gz
           - os: ubuntu-24.04-arm
-            platform: Linux
             tarball: dawn-linux-aarch64.tar.gz
           - os: macos-15
-            platform: Darwin
             tarball: dawn-darwin-arm64.tar.gz
           - os: macos-15
-            platform: Darwin
             tarball: dawn-darwin-x86_64.tar.gz
             extra_cmake_args: >-
               -DCMAKE_OSX_ARCHITECTURES=x86_64
@@ -106,7 +100,7 @@ jobs:
         run: sdkmanager "ndk;$ANDROID_NDK_VERSION"
 
       - name: Build host protoc
-        if: matrix.platform == 'Android' || matrix.platform == 'iOS'
+        if: matrix.platform
         run: |
           cmake -S dawn -B host-protoc -G Ninja \
             -C dawn/.github/workflows/dawn-ci.cmake \
@@ -119,7 +113,7 @@ jobs:
       - name: Configure
         run: >-
           cmake -S dawn -B build -G Ninja
-          -DCMAKE_SYSTEM_NAME=${{ matrix.platform }}
+          ${{ matrix.platform && format('-DCMAKE_SYSTEM_NAME={0}', matrix.platform) || '' }}
           ${{ matrix.extra_cmake_args }}
           -C dawn/.github/workflows/dawn-ci.cmake
           -C .github/workflows/dawn-ci.cmake
