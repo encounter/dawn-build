@@ -127,6 +127,13 @@ jobs:
       - name: Install
         run: cmake --install build --config Release --prefix install
 
+      - name: Strip debug info
+        if: matrix.platform == 'Android'
+        run: >-
+          $ANDROID_HOME/ndk/$ANDROID_NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip
+          --strip-debug
+          install/lib/libwebgpu_dawn.a
+
       - name: Copy DXC DLLs
         if: runner.os == 'Windows'
         shell: bash
