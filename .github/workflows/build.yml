@@ -27,9 +27,12 @@ jobs:
           - os: windows-latest
             tarball: dawn-windows-amd64.tar.gz
             msvc_arch: x64
+            windows_sdk_arch: x64
           - os: windows-latest
             tarball: dawn-windows-arm64.tar.gz
             msvc_arch: amd64_arm64
+            windows_sdk_arch: arm64
+            dxc_tablegen_arch: x64
           - os: ubuntu-24.04
             tarball: dawn-linux-x86_64.tar.gz
           - os: ubuntu-24.04-arm
@@ -38,12 +41,12 @@ jobs:
             tarball: dawn-darwin-arm64.tar.gz
             extra_cmake_args: >-
               -DCMAKE_OSX_ARCHITECTURES=arm64
-              -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
           - os: macos-15
             tarball: dawn-darwin-x86_64.tar.gz
             extra_cmake_args: >-
               -DCMAKE_OSX_ARCHITECTURES=x86_64
-              -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
               -DCMAKE_SYSTEM_PROCESSOR=x86_64
           - os: ubuntu-24.04
             platform: Android
@@ -76,17 +79,35 @@ jobs:
           ref: ${{ inputs.dawn_ref }}
           path: dawn
 
-      - name: Setup MSVC
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1.13.0
-        with:
-          arch: ${{ matrix.msvc_arch }}
-
       - name: Setup CMake & Ninja
         uses: lukka/get-cmake@v4.2.3
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Setup MSVC for host DXC tablegen
+        if: matrix.dxc_tablegen_arch
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: ${{ matrix.dxc_tablegen_arch }}
+
+      - name: Build host DXC tablegen
+        if: matrix.dxc_tablegen_arch
+        shell: pwsh
+        run: |
+          cmake -S dawn -B host-dxc-tablegen -G Ninja `
+            -C dawn/.github/workflows/dawn-ci.cmake `
+            -C .github/workflows/dawn-ci.cmake `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake --build host-dxc-tablegen --target llvm-tblgen clang-tblgen --config Release
+
+      - name: Setup MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: ${{ matrix.msvc_arch }}
 
       - name: Install dependencies
         if: runner.os == 'Linux'
@@ -119,6 +140,8 @@ jobs:
           cmake -S dawn -B build -G Ninja
           ${{ matrix.platform && format('-DCMAKE_SYSTEM_NAME={0}', matrix.platform) || '' }}
           ${{ matrix.extra_cmake_args }}
+          ${{ matrix.dxc_tablegen_arch && format('-DLLVM_TABLEGEN={0}/host-dxc-tablegen/third_party/directx-shader-compiler/src/bin/llvm-tblgen.exe', github.workspace) || '' }}
+          ${{ matrix.dxc_tablegen_arch && format('-DCLANG_TABLEGEN={0}/host-dxc-tablegen/third_party/directx-shader-compiler/src/bin/clang-tblgen.exe', github.workspace) || '' }}
           -C dawn/.github/workflows/dawn-ci.cmake
           -C .github/workflows/dawn-ci.cmake
           -DCMAKE_BUILD_TYPE=Release
@@ -145,7 +168,7 @@ jobs:
           cp build/dxcompiler.dll install/bin/
           # Dawn's CopyWindowsSDKDLL.cmake hardcodes the x64 SDK path, so on
           # ARM64 build/dxil.dll is still x64. Source it from the SDK directly.
-          cp "${WindowsSdkDir}bin/${WindowsSDKVersion}${{ matrix.msvc_arch }}/dxil.dll" install/bin/
+          cp "${WindowsSdkDir}bin/${WindowsSDKVersion}${{ matrix.windows_sdk_arch }}/dxil.dll" install/bin/
 
       - name: Package
         run: tar -czf ${{ matrix.tarball }} -C install .
